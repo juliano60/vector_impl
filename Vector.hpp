@@ -6,6 +6,53 @@
 namespace tutorial {
 
     template <typename T, typename A = std::allocator<T>>
+    struct VectorBase {
+        VectorBase(const A& a, typename A::size_type n):
+            alloc{a}
+        {
+            elem = alloc.allocate(n);
+            space = last = elem+n;
+        }
+
+        ~VectorBase() {
+            alloc.deallocate(elem, last-elem);
+        }
+
+        VectorBase(const VectorBase&) =delete;
+        VectorBase& operator=(const VectorBase&) =delete;
+
+        VectorBase(VectorBase&& a):
+            alloc{a.alloc},
+            elem{a.elem},
+            space{a.space},
+            last{a.last}
+        {
+            a.elem = nullptr;
+            a.space = nullptr;
+            a.last = nullptr;
+        }
+
+        VectorBase& operator=(VectorBase&& a) {
+            alloc = a.alloc;
+            elem = a.elem;
+            space = a.space;
+            last = a.last;
+
+            a.elem = nullptr;
+            a.space = nullptr;
+            a.last = nullptr;
+
+            return *this;
+        }
+            
+        A alloc;
+        T* elem;
+        T* space;
+        T* last;
+    };
+ 
+
+    template <typename T, typename A = std::allocator<T>>
     class Vector {
     public:
         using size_type = typename A::size_type;
@@ -25,136 +72,103 @@ namespace tutorial {
 
         size_type size() const;
         bool empty() const;
+        void destroy();
 
         void reserve(size_type n);
         iterator begin();
         iterator end();
 
     private:
-        A alloc_;
-        T* elem_;
-        T* space_;
-        T* last_;
+        VectorBase<T,A> base_;
     };
 
     template <typename T, typename A>
     typename Vector<T,A>::iterator Vector<T,A>::begin() {
-        return elem_;
+        return base_.elem;
     }
 
     template <typename T, typename A>
     typename Vector<T,A>::iterator Vector<T,A>::end() {
-        return space_;
+        return base_.space;
     }
 
     template <typename T, typename A>
     Vector<T,A>::Vector(const A& a):
-        alloc_{a}, elem_{nullptr}, space_{nullptr}, last_{nullptr}
+        base_{a, 0}
     {}
 
     template <typename T, typename A>
     Vector<T,A>::Vector(size_type n, const T& val, const A& a)
-    : alloc_{a}
+    : base_{a, n}
     {
-        elem_ = alloc_.allocate(n);
-
-        try {
-            // construct using default constr or supplied value
-            std::uninitialized_fill(elem_, space_, val);
-            space_ = last_ = elem_+n;
-        }
-        catch (...) {
-            alloc_.deallocate(elem_, n);
-            throw;
-        }
+        // construct using default constr or supplied value
+        std::uninitialized_fill(base_.elem, base_.space, val);
     }
 
     template <typename T, typename A>
     Vector<T,A>::~Vector() {
         // call destructor 
-        for (T* p = elem_; p != space_; ++p)
-            alloc_.destroy(p);
-
-        alloc_.deallocate(elem_, last_ - elem_);
+        destroy();
     }
     
     template <typename T, typename A>
     Vector<T,A>::Vector(const Vector& rhs):
-        alloc_{rhs.alloc_}
+        base_{rhs.base_, rhs.size()}
     {
-        elem_ = alloc_.allocate(rhs.size());
-        std::uninitialized_copy(rhs.elem_, rhs.elem_+rhs.size(), elem_);
+        std::uninitialized_copy(rhs.base_.elem, rhs.base_.elem+rhs.size(), base_.elem);
+    }
 
-        space_ = elem_+rhs.size();
-        last_ = elem_+rhs.size();
+    template <typename T, typename A>
+    void Vector<T,A>::destroy() {
+        for (T* p = base_.elem; p!=base_.space; ++p)
+            base_.alloc.destroy(p);
     }
 
     template <typename T, typename A>
     Vector<T,A>& Vector<T,A>::operator=(const Vector& rhs) {
         if (&rhs == this) return *this;
 
-        Vector<T,A> temp{rhs};
-        for (T* p = elem_; p != space_; ++p)
-            alloc_.destroy(p);
+        VectorBase<T,A> tmp{rhs.base_, rhs.size()};
 
-        alloc_.deallocate(elem_, last_ - elem_);
+        // destroy elements
+        destroy();
 
-        elem_ = temp.elem_;
-        space_ = temp.space_;
-        last_ = temp.last_;
+        // swap representations
+        swap(base_, tmp);
 
         return *this;
     }
 
     template <typename T, typename A>
     typename Vector<T,A>::size_type Vector<T,A>::size() const {
-        return space_-elem_;
+        return base_.space-base_.elem;
     }
 
     template <typename T, typename A>
     bool Vector<T,A>::empty() const {
-        return elem_==space_;
+        return base_.elem==base_.space;
     }
 
     template <typename T, typename A>
     void Vector<T,A>::reserve(size_type n) {
         if (n<=size()) return;
 
-        T* p = alloc_.allocate(n);
-        std::uninitialized_copy(elem_, elem_+size(), p);
+        VectorBase<T,A> p{base_.alloc, n};
+        std::uninitialized_copy(base_.elem, base_.elem+size(), p.elem);
+        p.space = p.elem + size();
 
-        size_type old_size = size();
-        // cleanup
-        for (T* p = elem_; p != space_; ++p)
-            alloc_.destroy(p);
-
-        alloc_.deallocate(elem_, last_ - elem_);
-        
-        elem_ = p;
-        space_ = elem_+old_size;
-        last_ = elem_+n;
+        // swap representations
+        swap(base_, p);
     }
      
     template <typename T, typename A>
     Vector<T,A>::Vector(Vector&& a):
-        alloc_{a.alloc_}, elem_{a.elem_}, space_{a.space_}, last_{a.last_}
-    {
-        a.elem_ = nullptr;
-        a.space_ = nullptr;
-        a.last_ = nullptr;
-    }
+        base_{a.base_}
+    {}
 
     template <typename T, typename A>
     Vector<T,A>& Vector<T,A>::operator=(Vector&& a) {
-        alloc_ = a.alloc_;
-        elem_ = a.elem_;
-        space_ = a.space_;
-        last_ = a.last_;
-        
-        a.elem_ = nullptr;
-        a.space_ = nullptr;
-        a.last_ = nullptr;
-
+        swap(base_, a.base_);
         return *this;
     }
 
