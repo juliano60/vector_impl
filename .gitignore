@@ -1,0 +1,11 @@
+# ignore vim swp files
+*.swp
+
+# cpp executalbe
+a.out
+
+# don't include drills
+drill*.cpp
+
+# ignore template files
+*.gch
