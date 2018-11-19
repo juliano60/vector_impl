@@ -2,6 +2,16 @@
 #include "Vector.hpp"
 #include <iostream>
 
+namespace {
+    template <typename C>
+    void print_vec(const C& v) {
+        for (const auto& x:v) {
+            std::cout << x << " ";
+        }
+        std::cout << "\n";
+    }
+}
+
 using namespace tutorial;
 
 TEST_CASE ("simpleConstruction") {
@@ -10,10 +20,18 @@ TEST_CASE ("simpleConstruction") {
     REQUIRE(v.size() == 10);
     REQUIRE_FALSE(v.empty());
 
-    for (auto& x: v) {
-        std::cout << x << " ";
-    }
-    std::cout << "\n";
+    print_vec(v);
+}
+
+TEST_CASE ("testCopying") {
+    Vector<int> v(10);
+    Vector<int> c(v);
+
+    REQUIRE(v.size() == 10);
+    REQUIRE(c.size() == 10);
+    
+    print_vec(v);
+    print_vec(c);
 }
 
 TEST_CASE ("testReserve") {
@@ -23,12 +41,9 @@ TEST_CASE ("testReserve") {
     REQUIRE(v.size() == 0);
     REQUIRE(v.empty());
 
-    for (auto& x: v) {
-        std::cout << x << " ";
-    }
-    std::cout << "\n";
+    print_vec(v);
 }
-/*
+
 TEST_CASE ("testInsertion") {
     Vector<int> v;
     v.reserve(20);
@@ -38,8 +53,7 @@ TEST_CASE ("testInsertion") {
     v.push_back(30);
     v.push_back(40);
 
-    //for (auto& x: v) {}
-    
     REQUIRE(v.size() == 4);
+    print_vec(v);
 }
-*/
+
