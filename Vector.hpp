@@ -8,11 +8,12 @@ namespace tutorial {
 
     template <typename T, typename A = std::allocator<T>>
     struct VectorBase {
-        VectorBase(const A& a, typename A::size_type n):
+        VectorBase(const A& a, typename A::size_type n, typename A::size_type m=0):
             alloc{a}
         {
-            elem = alloc.allocate(n);
-            space = last = elem+n;
+            elem = alloc.allocate(n+m);
+            space = elem+n;
+            last = elem+n+m;
         }
 
         ~VectorBase() {
@@ -211,8 +212,8 @@ namespace tutorial {
     void Vector<T,A>::reserve(size_type n) {
         if (n<=capacity()) return;
 
-        VectorBase<T,A> tmp{base_.alloc, n};
         size_type sz = size();
+        VectorBase<T,A> tmp{base_.alloc, sz, n-sz};
         
         // move elements
         T* q = base_.elem;
@@ -220,7 +221,6 @@ namespace tutorial {
             new (static_cast<void*>(&*q)) T{std::move(*p)};
             p->~T();
         }
-        tmp.space = tmp.elem+sz;
 
         swap(base_, tmp);
     }
