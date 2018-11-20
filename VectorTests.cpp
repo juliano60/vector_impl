@@ -57,3 +57,9 @@ TEST_CASE ("testInsertion") {
     print_vec(v);
 }
 
+TEST_CASE ("constructWithInitializerList") {
+    Vector<std::string> v = {"ab", "ac", "ad"};
+
+    REQUIRE(v.size() == 3);
+    print_vec(v);
+}

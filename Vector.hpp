@@ -3,6 +3,8 @@
 
 #include <memory>
 #include <algorithm>
+#include <initializer_list>
+#include <iterator>
 
 namespace tutorial {
 
@@ -60,9 +62,15 @@ namespace tutorial {
         using size_type = typename A::size_type;
         using iterator = T*;
         using const_iterator = const T*;
+        using value_type = T;
 
         explicit Vector(const A& = A());
         explicit Vector(size_type n, const T& val = T(), const A& = A());
+        Vector(std::initializer_list<value_type> data, const A& = A());
+        
+        template <class InputIterator>
+        Vector(InputIterator first, InputIterator last, const A& = A());
+
         ~Vector();
 
         // copy operations
@@ -93,6 +101,21 @@ namespace tutorial {
     private:
         VectorBase<T,A> base_;
     };
+
+    template <typename T, typename A>
+    template <class InputIterator>
+    Vector<T,A>::Vector(InputIterator first, InputIterator last, const A& a) :
+        base_{a, std::distance(first, last)}
+    {
+        std::uninitialized_copy(first, last, base_.elem);
+    }
+
+    template <typename T, typename A>
+    Vector<T,A>::Vector(std::initializer_list<value_type> data, const A& a) :
+        base_{a, data.size()}
+    {
+        std::uninitialized_copy(data.begin(), data.end(), base_.elem);
+    }
 
     template <typename T, typename A>
     Vector<T,A>::Vector(const A& a):
